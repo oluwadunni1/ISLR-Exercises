@@ -1,0 +1,389 @@
+---
+title: "Hands-On Linear Regression"
+subtitle: "Modelling MPG using Auto Features"
+author: "Oluwadunni"
+date:  2025-03-16
+format:
+  html:
+    toc: true
+    theme: cosmo
+editor: visual
+---
+
+```{r setupEnviron, include=FALSE}
+library(ISLR2)
+data(Auto)
+```
+
+## Introduction
+
+This Report demonstrates the application of multiple linear regression to model miles per gallon (mpg) using predictors in the Auto data set. The analysis aims to explore relationships, assess predictor significance, and evaluate the regression model's fit.
+
+Variables in the Auto dataset include :
+
+-   `mpg`: miles per galon
+-   `cylinders`: Number of cylinders between 4 and 8
+-   `displacement`: Engine displacement(cu.inches)
+-   `horsepower`: Engine horsepower
+-   `weight`: Vehicle weight(lbs)
+-   `acceleration`: Time to accelerate 0-60 mph(sec)
+-   `year`: Model year
+-   `origin`: Origin of car(1. American, 2. European, 3. Japanese)
+
+## Exploratory Data Analysis
+
+### Scatterplot Matrix
+
+The Auto data set, displayed in the scatterplot matrix, records variables for a number of vehicles. Each panel of the scatterplot matrix is a scatterplot for a pair of variables, with identities indicated by the corresponding row and column labels. For example, the scatterplot directly to the right of the word “mpg” depicts mpg versus cylinders, while the plot directly to the right of “cylinders” corresponds to cylinders versus displacement.
+
+```{r, fig.width=12, fig.height=12, echo=FALSE}
+pairs(subset(Auto, select = -name), cex = 0.6, pch = 16, col = "navy")
+```
+
+The scatterplot matrix reveals several notable patterns. A strong negative relationship is observed between mpg and predictors such as displacement, horsepower, and weight, indicating that higher values in these variables are associated with lower fuel efficiency e.g., the mpg versus weight panel shows a clear downward trend, suggesting heavier vehicles tend to have lower mpg.Additionally, relationships among predictors, such as the positive correlation between displacement and weight, suggest potential multicollinearity to investigate further in the regression analysis.
+
+```{r include=FALSE}
+cor_matrix <- cor(Auto[, !names(Auto) %in% "name"])
+cor_df <- as.data.frame(cor_matrix)
+```
+
+### Correlation Matrix
+
+The correlation matrix quantifies associations between the quantitative variables in the Auto data set.
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+library(knitr)
+library(kableExtra)
+library(gt)
+
+# Prepare the data as before
+var_names <- colnames(cor_matrix)
+formatted_matrix <- matrix("", nrow = length(var_names), ncol = length(var_names))
+
+for (i in 1:length(var_names)) {
+  for (j in 1:i) {
+    formatted_matrix[i, j] <- sprintf("%.4f", cor_matrix[i, j])
+  }
+}
+
+formatted_df <- as.data.frame(formatted_matrix)
+colnames(formatted_df) <- var_names
+formatted_df <- cbind(variable = var_names, formatted_df)
+
+# Create the table with no title but with a note at the bottom
+gt_table <- gt(formatted_df) %>%
+  cols_align(
+    align = "center",
+    columns = var_names
+  ) %>%
+  cols_align(
+    align = "left",
+    columns = "variable"
+  ) %>%
+  tab_style(
+    style = cell_text(color = "#8B4513", weight = "bold"),
+    locations = cells_column_labels()
+  ) %>%
+  tab_style(
+    style = cell_text(color = "#8B4513", weight = "bold"),
+    locations = cells_body(columns = 1)
+  ) %>%
+  tab_source_note(
+    source_note = md("*Correlation matrix for the Auto data.*")
+  )
+
+# Print the table
+gt_table
+```
+
+The correlation matrix quantifies the strong negative relationships observed in the scatterplot matrix between mpg and key predictors such as weight (-0.832), displacement (-0.805), horsepower (-0.778), and cylinders (-0.778). This confirms that larger, heavier, and more powerful cars consistently achieve lower fuel efficiency and reinforces the downward trend between weight and mpg seen in the scatterplot. Additionally, the matrix highlights high multicollinearity among predictors, particularly between displacement and weight (0.933), extending to cylinders (0.951) and other related attributes, suggesting that these variables collectively represent aspects of overall vehicle size and power.
+
+## Regression Model
+
+To assess the relationship between mpg and the quantitative predictors in the Auto data set, a multiple linear regression model is fitted using all predictors: cylinders, displacement, horsepower, weight, acceleration, year, and origin while excluding the qualitative `name` variable.
+
+```{r, echo=FALSE}
+# Fit your model
+model <- lm(mpg ~ . -name, data = Auto)
+
+# Load necessary library
+library(gt)
+
+# Extract the coefficient summary
+coef_summary <- summary(model)$coefficients
+
+# Create a data frame with row names as a column
+# Note: Using exact column names that match what gt is looking for
+coef_table <- data.frame(
+  Term = rownames(coef_summary),
+  Coefficient = round(coef_summary[, 1], 4),
+  `Std. error` = round(coef_summary[, 2], 4),  # Note the backticks to preserve spaces
+  `t-statistic` = round(coef_summary[, 3], 1),
+  `p-value` = ifelse(coef_summary[, 4] < 0.0001, "< 0.0001", round(coef_summary[, 4], 4)),
+  check.names = FALSE  # This prevents R from converting spaces to dots
+)
+
+# Create a gt table
+gt_table <- gt(coef_table) %>%
+  cols_align(align = "center", columns = c("Coefficient", "Std. error", "t-statistic", "p-value")) %>%
+  cols_align(align = "left", columns = "Term") %>%
+  tab_style(
+    style = cell_text(color = "#8B4513", weight = "bold"),
+    locations = cells_body(columns = "Term")
+  )
+
+# Add the footnote
+if (packageVersion("gt") >= "0.3.0") {
+  # For newer versions of gt
+  gt_table <- gt_table %>%
+    tab_footnote(
+      footnote = md("*Table 1.2 displays the multiple regression coefficient estimates when cylinders, displacement, horsepower, weight, acceleration, year, and origin are used to predict mpg using Auto data.*"),
+      locations = cells_column_labels(columns = "Term")
+    ) %>%
+    tab_options(
+      footnotes.marks = ""
+    )
+}
+
+# Display the table
+gt_table
+```
+
+The model explains 82.15% of mpg’s variance (R² = 0.8215), with a highly significant overall relationship (F = 252.4, p \< 2.2e-16). Key predictors include weight, year, origin, and displacement, while cylinders, horsepower, and acceleration are not statistically significant. Notably, the year coefficient (0.75) indicates that fuel efficiency improves by 0.75 mpg per year
+
+### Diagnostic Analysis
+
+Diagnostic plots are generated to evaluate the fit of the multiple linear regression model and identify potential issues such as non-linearity, heteroscedasticity, outliers, or high-leverage points.
+
+```{r fig.width=12, fig.height=12, echo=FALSE}
+par(mfrow = c(2, 2))  # 2x2 grid
+plot(model)
+```
+
+The diagnostic plots reveal several issues with the model fit. The Residuals vs Fitted plot(Top left) displays a slight U-shaped pattern, with residuals trending downward for fitted values below 20 and upward above 25, suggesting the linear model may not fully capture the data’s underlying structure. The Q-Q Residuals plot(Top Right) shows deviations from the diagonal at the tails, particularly for residuals beyond ±2, with observations 323, 326, and 390 appearing as unusually large outliers based on standardized residuals. The Scale-Location plot(Bottom left) indicates heteroscedasticity, as the spread of standardized residuals increases with fitted values, especially above 25, violating the assumption of constant variance. 
+
+The Residuals vs Leverage plot(Bottom left) identifies observation 140 with unusually high leverage, exceeding 0.15, and flags observations 323, 326, and 327 as outliers; however, none of these points exceed a Cook’s distance of 0.5, suggesting they have limited influence on the overall fit. These findings highlight areas for potential improvement in the model, to be explored through interaction effects and variable transformations in subsequent analyses.
+
+### Interaction Effects
+
+To explore whether interactions between predictors improve the model fit, linear regression models incorporating interaction terms are fitted using the `*` and `:` symbols, building on the non-linearity observed in the diagnostic analysis.
+
+```{r echo=FALSE}
+# Model 1: horsepower * weight
+interaction_model1 <- lm(mpg ~ horsepower * weight + cylinders + displacement + acceleration + year + origin - name, data = Auto)
+coef_summary1 <- summary(interaction_model1)$coefficients
+coef_table1 <- data.frame(
+  Term = rownames(coef_summary1),
+  Coefficient = round(coef_summary1[, 1], 4),
+  `Std. error` = round(coef_summary1[, 2], 4),
+  `t-statistic` = round(coef_summary1[, 3], 1),
+  `p-value` = ifelse(coef_summary1[, 4] < 0.0001, "< 0.0001", round(coef_summary1[, 4], 4)),
+  check.names = FALSE
+)
+gt_table1 <- gt(coef_table1) %>%
+  cols_align(align = "center", columns = c("Coefficient", "Std. error", "t-statistic", "p-value")) %>%
+  cols_align(align = "left", columns = "Term") %>%
+  tab_style(
+    style = cell_text(color = "#8B4513", weight = "bold"),
+    locations = cells_body(columns = "Term")
+  ) %>%
+  tab_footnote(
+footnote = md("*Table 1.2a displays the least squares coefficient estimates associated with the regression of mpg onto horsepower, weight, and other predictors, including an interaction term horsepower * weight *"),
+locations = cells_column_labels(columns = "Term")
+  ) %>%
+  tab_options(footnotes.marks = "")
+gt_table1
+```
+
+For the first model with horsepower \* weight, the interaction term horsepower:weight is highly significant (p \< 2e-16), with a coefficient of 5.529e-05, suggesting that the combined effect of horsepower and weight on mpg is statistically meaningful, improving the model’s R-squared to 0.8618 from 0.8215 in the base model.
+
+```{r echo=FALSE}
+# Model 2: displacement * weight
+interaction_model2 <- lm(mpg ~ displacement * weight + cylinders + horsepower + acceleration + year + origin - name, data = Auto)
+coef_summary2 <- summary(interaction_model2)$coefficients
+coef_table2 <- data.frame(
+  Term = rownames(coef_summary2),
+  Coefficient = round(coef_summary2[, 1], 4),
+  `Std. error` = round(coef_summary2[, 2], 4),
+  `t-statistic` = round(coef_summary2[, 3], 1),
+  `p-value` = ifelse(coef_summary2[, 4] < 0.0001, "< 0.0001", round(coef_summary2[, 4], 4)),
+  check.names = FALSE
+)
+gt_table2 <- gt(coef_table2) %>%
+  cols_align(align = "center", columns = c("Coefficient", "Std. error", "t-statistic", "p-value")) %>%
+  cols_align(align = "left", columns = "Term") %>%
+  tab_style(
+    style = cell_text(color = "#8B4513", weight = "bold"),
+    locations = cells_body(columns = "Term")
+  ) %>%
+  tab_footnote(
+footnote = md("*Table 1.2b displays the least squares coefficient estimates associated with the regression of mpg onto displacement, weight, and other predictors, including an interaction term displacement * weight. *"),  
+locations = cells_column_labels(columns = "Term")
+  ) %>%
+  tab_options(footnotes.marks = "")
+
+gt_table2
+```
+
+The second model with displacement \* weight also shows a significant interaction (p \< 2e-16, coefficient 2.269e-05), with an R-squared of 0.8588, indicating that engine size and weight together influence mpg.
+
+```{r echo=FALSE}
+# Model 3: year * weight
+interaction_model3 <- lm(mpg ~ year * weight + cylinders + displacement + horsepower + acceleration + origin - name, data = Auto)
+coef_summary3 <- summary(interaction_model3)$coefficients
+coef_table3 <- data.frame(
+  Term = rownames(coef_summary3),
+  Coefficient = round(coef_summary3[, 1], 4),
+  `Std. error` = round(coef_summary3[, 2], 4),
+  `t-statistic` = round(coef_summary3[, 3], 1),
+  `p-value` = ifelse(coef_summary3[, 4] < 0.0001, "< 0.0001", round(coef_summary3[, 4], 4)),
+  check.names = FALSE
+)
+gt_table3 <- gt(coef_table3) %>%
+  cols_align(align = "center", columns = c("Coefficient", "Std. error", "t-statistic", "p-value")) %>%
+  cols_align(align = "left", columns = "Term") %>%
+  tab_style(
+    style = cell_text(color = "#8B4513", weight = "bold"),
+    locations = cells_body(columns = "Term")
+  ) %>%
+  tab_footnote(
+footnote = md("*Table 1.2c displays the least squares coefficient estimates associated with the regression of mpg onto year, weight, and other predictors, including an interaction term year * weight.*"),    locations = cells_column_labels(columns = "Term")
+  ) %>%
+  tab_options(footnotes.marks = "")
+gt_table3
+```
+
+The third model with year \* weight yields a significant interaction (p = 1.47e-14, coefficient -4.879e-04), with an R-squared of 0.847, suggesting that the effect of weight on mpg varies with model year.
+
+All three models outperform the base model (F-statistics: 298.6, 291.1, and 265.1, respectively, vs. 252.4), and their significant interaction terms (p \< 0.05) confirm that these pairs capture non-linear relationships.
+
+### Variable Transformations
+
+To further refine the model and address the non-linearity and heteroscedasticity identified in the diagnostic analysis, various transformations of the variables are applied, including `log(X)`, `√X`, and `X^2`.
+
+```{r echo=FALSE}
+# Model 1: log(horsepower) * weight
+transform_model1 <- lm(mpg ~ log(horsepower) * weight + displacement + year + origin + cylinders + acceleration - name, data = Auto)
+coef_summary1 <- summary(transform_model1)$coefficients
+coef_table1 <- data.frame(
+  Term = rownames(coef_summary1),
+  Coefficient = round(coef_summary1[, 1], 4),
+  `Std. error` = round(coef_summary1[, 2], 4),
+  `t-statistic` = round(coef_summary1[, 3], 1),
+  `p-value` = ifelse(coef_summary1[, 4] < 0.0001, "< 0.0001", round(coef_summary1[, 4], 4)),
+  check.names = FALSE
+)
+gt_table1 <- gt(coef_table1) %>%
+  cols_align(align = "center", columns = c("Coefficient", "Std. error", "t-statistic", "p-value")) %>%
+  cols_align(align = "left", columns = "Term") %>%
+  tab_style(
+    style = cell_text(color = "#8B4513", weight = "bold"),
+    locations = cells_body(columns = "Term")
+  ) %>%
+  tab_footnote(
+    footnote = md("*Table 1.3a displays the least squares coefficient estimates associated with the regression of mpg onto log(horsepower), weight, and other predictors, including an interaction term log(horsepower) * weight, using the Auto data.*"),
+    locations = cells_column_labels(columns = "Term")
+  ) %>%
+  tab_options(footnotes.marks = "")
+gt_table1
+```
+
+
+
+
+```{r echo=FALSE}
+#Model 2: sqrt(weight) * displacement
+transform_model2 <- lm(mpg ~ sqrt(weight) * displacement + horsepower + year + origin + cylinders + acceleration - name, data = Auto)
+coef_summary2 <- summary(transform_model2)$coefficients
+coef_table2 <- data.frame(
+  Term = rownames(coef_summary2),
+  Coefficient = round(coef_summary2[, 1], 4),
+  `Std. error` = round(coef_summary2[, 2], 4),
+  `t-statistic` = round(coef_summary2[, 3], 1),
+  `p-value` = ifelse(coef_summary2[, 4] < 0.0001, "< 0.0001", round(coef_summary2[, 4], 4)),
+  check.names = FALSE
+)
+gt_table2 <- gt(coef_table2) %>%
+  cols_align(align = "center", columns = c("Coefficient", "Std. error", "t-statistic", "p-value")) %>%
+  cols_align(align = "left", columns = "Term") %>%
+  tab_style(
+    style = cell_text(color = "#8B4513", weight = "bold"),
+    locations = cells_body(columns = "Term")
+  ) %>%
+  tab_footnote(
+    footnote = md("*Table 1.3b displays the least squares coefficient estimates associated with the regression of mpg onto sqrt(weight), displacement, and other predictors, including an interaction term sqrt(weight) * displacement, using the Auto data.*"),
+    locations = cells_column_labels(columns = "Term")
+  ) %>%
+  tab_options(footnotes.marks = "")
+gt_table2
+```
+
+
+
+
+```{r echo=FALSE}
+# Model 3: I(displacement^2)
+transform_model3 <- lm(mpg ~ I(displacement^2) + horsepower + weight + year + origin + cylinders + acceleration - name, data = Auto)
+coef_summary3 <- summary(transform_model3)$coefficients
+coef_table3 <- data.frame(
+  Term = rownames(coef_summary3),
+  Coefficient = round(coef_summary3[, 1], 4),
+  `Std. error` = round(coef_summary3[, 2], 4),
+  `t-statistic` = round(coef_summary3[, 3], 1),
+  `p-value` = ifelse(coef_summary3[, 4] < 0.0001, "< 0.0001", round(coef_summary3[, 4], 4)),
+  check.names = FALSE
+)
+gt_table3 <- gt(coef_table3) %>%
+  cols_align(align = "center", columns = c("Coefficient", "Std. error", "t-statistic", "p-value")) %>%
+  cols_align(align = "left", columns = "Term") %>%
+  tab_style(
+    style = cell_text(color = "#8B4513", weight = "bold"),
+    locations = cells_body(columns = "Term")
+  ) %>%
+  tab_footnote(
+    footnote = md("*Table 1.3c displays the least squares coefficient estimates associated with the regression of mpg onto a squared displacement term, I(displacement^2), and other predictors using the Auto data.*"),
+    locations = cells_column_labels(columns = "Term")
+  ) %>%
+  tab_options(footnotes.marks = "")
+gt_table3
+```
+
+Across all models, the log(horsepower) \* weight model performs best (R-squared 0.8625, residual standard error 2.924), slightly outperforming the best interaction model (0.8618), likely addressing non-linearity and heteroscedasticity. The sqrt(weight) \* displacement model (R-squared 0.8584) also improves fit, while the I(displacement\^2) model (R-squared 0.8361) is the least effective. Persistent non-significance of cylinders and displacement in some models suggests collinearity, necessitating further investigation.
+
+### Colinearity Assessment
+
+The `log(horsepower) * weight` model (Table 1.3a) is selected as the final model due to its superior fit (R-squared 0.8625, residual standard error 2.924). To address persistent non-significance of predictors like `cylinders` and `displacement`, collinearity is assessed using Variance Inflation Factors (VIF).
+
+```{r final-model-collinearity, echo=FALSE, warning=FALSE, message=FALSE}
+# Load required package for VIF
+library(car)
+
+# Compute VIF for the best model
+vif_results <- vif(transform_model1)
+vif_table <- data.frame(
+  Term = names(vif_results),
+  VIF = round(vif_results, 2)
+)
+gt_vif_table <- gt(vif_table) %>%
+  cols_align(align = "center", columns = "VIF") %>%
+  cols_align(align = "left", columns = "Term") %>%
+  tab_style(
+    style = cell_text(color = "#8B4513", weight = "bold"),
+    locations = cells_body(columns = "Term")
+  ) %>%
+  tab_footnote(
+    footnote = md("*Table 1.4 displays the Variance Inflation Factors (VIF) for predictors in the final model to assess collinearity.*"),
+    locations = cells_column_labels(columns = "Term")
+  ) %>%
+  tab_options(footnotes.marks = "")
+gt_vif_table
+```
+
+The VIF results reveal collinearity among several predictors. The interaction term log(horsepower):weight has an exceptionally high VIF of 380.62, which is expected as it is derived from log(horsepower) (VIF 21.21) and weight (VIF 261.22), both of which also exhibit high collinearity due to their inclusion in this significant term (p < 0.0001). Similarly, displacement (VIF 21.57) and cylinders (VIF 10.67) show elevated collinearity, consistent with their strong correlations with weight (0.933 and 0.951, respectively) from the correlation matrix. 
+
+This explains their non-significance in the model, as their effects may be overshadowed by weight and the interaction. In contrast, acceleration (VIF 3.25), year (VIF 1.26), and origin (VIF 1.88) have low VIFs, indicating minimal collinearity with other predictors. Despite the high VIFs, the model’s strong predictive performance (R-squared 0.8625) and significant coefficients suggest that retaining all terms is justified, though dropping cylinders or displacement could simplify the model without substantial loss of explanatory power.
+
+
+## Conclusion
+
+Overall, this analysis demonstrates a robust relationship between predictors and `mpg`, with `weight`, `year`, and `origin` as key drivers, enhanced by interactions and transformations. However, residual outliers, mild heteroscedasticity, and multicollinearity suggest limitations. Future steps could include robust regression to handle outliers or further variable selection to reduce collinearity, building on the improved fit achieved here.
