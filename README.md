@@ -4,14 +4,11 @@ This repository contains my solutions to the end-of-chapter exercises from *An I
 
 
 ## Chapters completed 
-Linear regression 
+1. Linear regression 
 
 *More chapters to be added as I progress!*
 
 *Last Updated: April 08, 2025*
 
-## Notes
-- This project is a work in progress. Expect regular updates as I complete more exercises.
-- Feedback is welcome! Feel free to open an issue or submit a pull request with suggestions or corrections.
 
  Follow my journey as I tackle ISLR, one chapter at a time. Happy learning!
