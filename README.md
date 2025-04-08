@@ -4,7 +4,7 @@ This repository contains my solutions to the end-of-chapter exercises from *An I
 
 
 ## Chapters completed 
-1. Linear regression 
+1. [Linear regression](https://oluwadunni1.github.io/ISLR-Exercises/Linear%20regression/Linear%20Regression.html)
 
 *More chapters to be added as I progress!*
 
