@@ -1,0 +1,11 @@
+---
+title: "ISLR Exercises"
+---
+
+# Introduction to Statistical Learning Exercises
+
+This website contains my solutions to the end-of-chapter exercises from An Introduction to Statistical Learning (ISLR).
+
+## Chapters completed:
+
+- [Linear Regression](Linear regression/Linear Regression.html)
